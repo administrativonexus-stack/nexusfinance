@@ -18,6 +18,9 @@
   if (USE_SUPABASE && typeof window.supabase !== 'undefined') {
     try {
       _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      _supabase.auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') openResetModal();
+      });
     } catch(e) { console.error('Supabase init falhou:', e); }
   } else if (USE_SUPABASE) {
     console.error('Biblioteca Supabase não carregou. Abra via servidor HTTP, não file://');
@@ -784,6 +787,19 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- MODAL: Reset Password -->
+<div class="modal-overlay" id="modal-reset-password">
+  <div class="modal">
+    <div class="modal-title">🔐 Nova Senha</div>
+    <div class="form-group"><label>Nova senha</label><input type="password" id="reset-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+    <div class="form-group"><label>Confirmar senha</label><input type="password" id="reset-pass2" placeholder="Repita a senha" autocomplete="new-password"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('reset-password')">Cancelar</button>
+      <button class="btn-confirm" onclick="confirmPasswordReset()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let currentUser = null;
 let currentUserId = null;
@@ -872,7 +888,7 @@ async function doForgotPassword() {
   const email=document.getElementById('login-email').value.trim();
   if(!email) return showError('Digite seu e-mail no campo acima primeiro.');
   if(!USE_SUPABASE) return showError('Configure o Supabase para usar esta função.');
-  const {error}=await _supabase.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});
+  const {error}=await _supabase.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
   if(error) return showError('Erro ao enviar e-mail: '+error.message);
   showError('✅ E-mail de recuperação enviado! Verifique sua caixa de entrada.',true);
 }
@@ -931,6 +947,28 @@ async function launchApp(name) {
   document.getElementById('quick-date').valueAsDate=now;
   await loadUserDataFromSupabase();
   renderAll();
+}
+
+// ── RESET DE SENHA ──
+function openResetModal() {
+  const rp=document.getElementById('reset-pass'), rp2=document.getElementById('reset-pass2');
+  if(rp) rp.value=''; if(rp2) rp2.value='';
+  openModal('reset-password');
+}
+async function confirmPasswordReset() {
+  const pass=document.getElementById('reset-pass').value, pass2=document.getElementById('reset-pass2').value;
+  if(!pass||pass.length<6) return toast('Senha deve ter pelo menos 6 caracteres','error');
+  if(pass!==pass2) return toast('As senhas não coincidem','error');
+  const btn=document.querySelector('#modal-reset-password .btn-confirm');
+  btn.textContent='Salvando...'; btn.disabled=true;
+  try {
+    const {error}=await _supabase.auth.updateUser({password:pass});
+    if(error) return toast(error.message,'error');
+    closeModal('reset-password');
+    toast('Senha alterada! Faça login novamente.','success');
+    await _supabase.auth.signOut();
+    doLogout();
+  } finally { btn.textContent='Salvar'; btn.disabled=false; }
 }
 
 // ── LOGOUT ──

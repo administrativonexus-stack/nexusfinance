@@ -227,6 +227,23 @@
   .goal-footer { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-weight: 500; }
   .goal-actions { display: flex; gap: 8px; margin-top: 14px; }
 
+  /* RELATÓRIO MENSAL */
+  .relatorio-row { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; background:var(--card); border-radius:12px; margin-bottom:8px; flex-wrap:wrap; gap:8px; }
+  .relatorio-month { font-weight:700; font-size:15px; color:var(--text); min-width:140px; }
+  .relatorio-vals { display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+  .relatorio-vals .rv-income { color:var(--green); font-weight:600; font-size:13px; }
+  .relatorio-vals .rv-expense { color:var(--red); font-weight:600; font-size:13px; }
+  .relatorio-vals .rv-saldo { font-weight:700; font-size:15px; min-width:110px; text-align:right; }
+
+  /* LEMBRETES */
+  .reminder-item { display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--card); border-radius:12px; margin-bottom:8px; transition:opacity .2s; }
+  .reminder-item.paid { opacity:0.45; }
+  .reminder-item.paid .reminder-text { text-decoration:line-through; }
+  .reminder-check input[type=checkbox] { width:18px; height:18px; cursor:pointer; accent-color:var(--green); flex-shrink:0; }
+  .reminder-info { flex:1; min-width:0; }
+  .reminder-text { font-weight:600; font-size:14px; color:var(--text); }
+  .reminder-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+
   /* BADGES */
   .badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
   .badge.green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
@@ -529,6 +546,12 @@
     <button class="nav-item" onclick="showPage('goals',this)">
       <div class="nicon">◎</div> Metas
     </button>
+    <button class="nav-item" onclick="showPage('relatorio',this)">
+      <div class="nicon">📅</div> Relatório Mensal
+    </button>
+    <button class="nav-item" onclick="showPage('reminders',this)">
+      <div class="nicon">🔔</div> Lembretes
+    </button>
 
     <div class="sidebar-footer">
       <div class="user-badge">
@@ -654,6 +677,23 @@
         <button class="btn-add" onclick="openModal('goal')">+ Nova Meta</button>
       </div>
       <div id="goals-grid"><div class="empty-state"><div class="empty-ico">🎯</div><p>Nenhuma meta cadastrada ainda</p></div></div>
+    </div>
+
+    <!-- RELATÓRIO MENSAL -->
+    <div class="page" id="page-relatorio">
+      <div class="page-header">
+        <div><div class="page-title">Relatório Mensal</div><div class="page-sub">Saldo acumulado por mês</div></div>
+      </div>
+      <div id="relatorio-list"></div>
+    </div>
+
+    <!-- LEMBRETES -->
+    <div class="page" id="page-reminders">
+      <div class="page-header">
+        <div><div class="page-title">Lembretes</div><div class="page-sub">Contas a pagar</div></div>
+        <button class="btn-add" onclick="openModal('reminder')">+ Novo</button>
+      </div>
+      <div id="reminders-list"></div>
     </div>
   </div>
 </div>
@@ -781,6 +821,22 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('add-goal')">Cancelar</button>
       <button class="btn-confirm" onclick="confirmAddToGoal()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Lembrete -->
+<div class="modal-overlay" id="modal-reminder">
+  <div class="modal">
+    <div class="modal-title">Novo Lembrete</div>
+    <div class="form-group"><label>Descrição</label><input type="text" id="rem-text" placeholder="Ex: Conta de luz, IPVA..."></div>
+    <div class="form-row">
+      <div class="form-group"><label>Vencimento</label><input type="date" id="rem-date"></div>
+      <div class="form-group"><label>Valor (R$)</label><input type="number" id="rem-value" placeholder="0,00" min="0" step="0.01"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('reminder')">Cancelar</button>
+      <button class="btn-confirm" onclick="saveReminder()">Salvar</button>
     </div>
   </div>
 </div>
@@ -916,7 +972,14 @@ async function loadUserDataFromSupabase() {
     if(error||!data?.length) return;
     const all=JSON.parse(localStorage.getItem('nf_data')||'{}');
     if(!all[currentUser])all[currentUser]={};
-    data.forEach(row=>{ all[currentUser][row.data_key]=row.data_value; });
+    data.forEach(row=>{
+      const remote=row.data_value, local=all[currentUser][row.data_key];
+      if(Array.isArray(remote)&&Array.isArray(local)&&local.length>0){
+        const merged=[...remote];
+        local.forEach(item=>{ if(item.id&&!merged.find(r=>r.id===item.id)) merged.push(item); });
+        all[currentUser][row.data_key]=merged;
+      } else { all[currentUser][row.data_key]=remote; }
+    });
     localStorage.setItem('nf_data',JSON.stringify(all));
   } catch(e) { console.error('Erro ao carregar dados:',e); }
 }
@@ -1000,7 +1063,7 @@ function showPage(page, btn) {
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
   if(btn&&btn.classList.contains('nav-item')) btn.classList.add('active');
-  ({dashboard:renderAll,transactions:renderTxList,fixed:renderFixed,'income-page':renderRecurring,goals:renderGoals})[page]?.();
+  ({dashboard:renderAll,transactions:renderTxList,fixed:renderFixed,'income-page':renderRecurring,goals:renderGoals,relatorio:renderRelatorio,reminders:renderReminders})[page]?.();
 }
 
 function openModal(type) { document.getElementById('modal-'+type).classList.add('open'); }
@@ -1199,6 +1262,51 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+function renderRelatorio() {
+  const txs=getUserData('transactions'), c=document.getElementById('relatorio-list');
+  if(!txs.length){c.innerHTML='<div class="empty-state"><div class="empty-ico">📅</div><p>Nenhuma transação encontrada</p></div>';return;}
+  const map={};
+  txs.forEach(t=>{
+    const d=new Date(t.date+'T12:00:00');
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(!map[key]) map[key]={income:0,expense:0,month:d.getMonth(),year:d.getFullYear()};
+    if(t.type==='income') map[key].income+=t.value; else map[key].expense+=t.value;
+  });
+  const sorted=Object.entries(map).sort((a,b)=>b[0].localeCompare(a[0]));
+  c.innerHTML=sorted.map(([,v])=>{
+    const bal=v.income-v.expense, cls=bal>=0?'income':'expense', sign=bal>=0?'+':'-';
+    return `<div class="relatorio-row"><div class="relatorio-month">${MONTHS_PT[v.month]} ${v.year}</div><div class="relatorio-vals"><span class="rv-income">↑ ${fmt(v.income)}</span><span class="rv-expense">↓ ${fmt(v.expense)}</span><span class="rv-saldo ${cls}">${sign} ${fmt(Math.abs(bal))}</span></div></div>`;
+  }).join('');
+}
+
+function saveReminder() {
+  const text=document.getElementById('rem-text').value.trim(), dueDate=document.getElementById('rem-date').value, value=parseFloat(document.getElementById('rem-value').value)||0;
+  if(!text) return toast('Preencha a descrição','error');
+  const items=getUserData('reminders'); items.push({id:Date.now(),text,dueDate,value,paid:false});
+  setUserData('reminders',items); closeModal('reminder');
+  ['rem-text','rem-date','rem-value'].forEach(id=>document.getElementById(id).value='');
+  toast('Lembrete adicionado!','success'); renderReminders();
+}
+function toggleReminder(id) {
+  const items=getUserData('reminders'), item=items.find(r=>r.id===id); if(!item) return;
+  item.paid=!item.paid; setUserData('reminders',items); renderReminders();
+}
+function deleteReminder(id) { setUserData('reminders',getUserData('reminders').filter(r=>r.id!==id)); renderReminders(); toast('Removido','success'); }
+function renderReminders() {
+  const items=getUserData('reminders'), c=document.getElementById('reminders-list');
+  if(!items.length){c.innerHTML='<div class="empty-state"><div class="empty-ico">🔔</div><p>Nenhum lembrete cadastrado</p></div>';return;}
+  const sorted=[...items].sort((a,b)=>{
+    if(a.paid!==b.paid) return a.paid?1:-1;
+    if(!a.dueDate&&!b.dueDate) return 0; if(!a.dueDate) return 1; if(!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+  c.innerHTML=sorted.map(r=>{
+    const ds=r.dueDate?new Date(r.dueDate+'T12:00:00').toLocaleDateString('pt-BR'):'';
+    const vs=r.value?fmt(r.value):'';
+    return `<div class="reminder-item${r.paid?' paid':''}"><div class="reminder-check"><input type="checkbox" ${r.paid?'checked':''} onchange="toggleReminder(${r.id})"></div><div class="reminder-info"><div class="reminder-text">${r.text}</div><div class="reminder-meta">${[ds,vs].filter(Boolean).join(' · ')}</div></div><button class="tx-del" onclick="deleteReminder(${r.id})">✕</button></div>`;
+  }).join('');
+}
 
 function fmt(v) { return 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function toast(msg,type='success') { const el=document.getElementById('toast'); el.textContent=msg; el.className=`toast ${type} show`; setTimeout(()=>el.classList.remove('show'),2800); }

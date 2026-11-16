@@ -257,6 +257,15 @@
 .cap-inline-input { font:inherit; color:inherit; background:var(--card); border:1.5px solid var(--navy); border-radius:6px; padding:2px 6px; margin:-2px -6px; outline:none; max-width:100%; }
 .cap-amt .cap-inline-input { width:130px; text-align:right; }
 .cap-name .cap-inline-input { width:100%; }
+.cap-quick { display:flex; align-items:center; gap:8px; padding:8px; border:1.5px dashed var(--border); border-radius:10px; }
+.cap-quick input { font:inherit; font-size:14px; color:var(--text); background:var(--card); border:1.5px solid var(--border); border-radius:8px; padding:9px 11px; outline:none; min-width:0; }
+.cap-quick input:focus { border-color:var(--navy); }
+.cap-quick .cq-name { flex:1; }
+.cap-quick .cq-value { width:140px; text-align:right; }
+.cap-quick .cq-date { width:150px; }
+.cap-quick button { flex-shrink:0; width:38px; height:38px; border:none; border-radius:8px; background:var(--navy); color:#fff; font-size:20px; font-weight:700; cursor:pointer; }
+.cap-quick button:active { transform:scale(.93); }
+@media (max-width:768px){ .cap-quick{flex-wrap:wrap} .cap-quick .cq-name{flex:1 1 100%} .cap-quick .cq-value,.cap-quick .cq-date{flex:1;width:auto} }
 @media (max-width:768px){ .cap-item{padding:11px 10px;gap:9px} .cap-ico{width:32px;height:32px;font-size:13px} }
   .reminder-check input[type=checkbox] { width:18px; height:18px; cursor:pointer; accent-color:var(--green); flex-shrink:0; }
   .reminder-info { flex:1; min-width:0; }
@@ -722,7 +731,7 @@
     <div class="page" id="page-capital">
       <div class="page-header">
         <div><div class="page-title">Soma de Capital</div><div class="page-sub">Onde está seu dinheiro e quanto sobra de verdade</div></div>
-        <button class="btn-add" onclick="openCapAccount()">+ Novo Local</button>
+        <button class="btn-add" onclick="capFocusQuick('acc')">+ Novo Local</button>
       </div>
       <div class="cards-row">
         <div class="stat-card">
@@ -742,12 +751,23 @@
         </div>
       </div>
       <div class="panel">
-        <div class="panel-title">Onde está o dinheiro <a onclick="openCapAccount()">+ Adicionar</a></div>
+        <div class="panel-title">Onde está o dinheiro <a onclick="capFocusQuick('acc')">+ Adicionar</a></div>
         <div id="cap-accounts-list"></div>
+        <div class="cap-quick">
+          <input class="cq-name" id="cq-acc-name" placeholder="Onde está (ex: Inter, Binance...)" list="cap-place-suggestions" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('cq-acc-value').focus();}">
+          <input class="cq-value" id="cq-acc-value" type="number" step="0.01" inputmode="decimal" placeholder="R$ 0,00" onkeydown="if(event.key==='Enter'){event.preventDefault();capQuickAdd('acc');}">
+          <button title="Adicionar" onclick="capQuickAdd('acc')">+</button>
+        </div>
       </div>
       <div class="panel">
-        <div class="panel-title">Contas a pagar <a onclick="openCapBill()">+ Adicionar</a></div>
+        <div class="panel-title">Contas a pagar <a onclick="capFocusQuick('bill')">+ Adicionar</a></div>
         <div id="cap-bills-list"></div>
+        <div class="cap-quick">
+          <input class="cq-name" id="cq-bill-name" placeholder="Conta (ex: Cartão, Aluguel...)" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('cq-bill-value').focus();}">
+          <input class="cq-value" id="cq-bill-value" type="number" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" onkeydown="if(event.key==='Enter'){event.preventDefault();capQuickAdd('bill');}">
+          <input class="cq-date" id="cq-bill-date" type="date" title="Vencimento (opcional)" onkeydown="if(event.key==='Enter'){event.preventDefault();capQuickAdd('bill');}">
+          <button title="Adicionar" onclick="capQuickAdd('bill')">+</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1456,6 +1476,30 @@ function deleteCapBill(id) {
   setUserData('capital_bills',getUserData('capital_bills').filter(x=>x.id!==id)); renderCapital(); toast('Removida','success');
 }
 
+// Adição rápida: nome + valor na linha de baixo, Enter adiciona e volta pro nome
+function capFocusQuick(kind) {
+  const el=document.getElementById('cq-'+kind+'-name');
+  el.scrollIntoView({behavior:'smooth',block:'center'}); el.focus();
+}
+function capQuickAdd(kind) {
+  const nameEl=document.getElementById('cq-'+kind+'-name'), valEl=document.getElementById('cq-'+kind+'-value');
+  const name=nameEl.value.trim(), value=parseFloat(String(valEl.value).replace(',','.'));
+  if(!name){ nameEl.focus(); return toast('Digite o nome','error'); }
+  if(isNaN(value)||(kind==='bill'&&value<=0)){ valEl.focus(); return toast('Digite o valor','error'); }
+  if(kind==='acc'){
+    const items=getUserData('capital_accounts');
+    items.push({id:Date.now(),place:name,name:'',value,updatedAt:new Date().toISOString()});
+    setUserData('capital_accounts',items);
+  } else {
+    const dateEl=document.getElementById('cq-bill-date');
+    const items=getUserData('capital_bills');
+    items.push({id:Date.now(),name,value,dueDate:dateEl.value,paid:false});
+    setUserData('capital_bills',items); dateEl.value='';
+  }
+  nameEl.value=''; valEl.value='';
+  renderCapital(); nameEl.focus(); toast('Adicionado!','success');
+}
+
 // Edição direta na linha: clica no texto, digita, Enter/clicar fora salva, Esc cancela
 function capInline(el, key, id, field) {
   if(el.querySelector('input')) return;
@@ -1499,11 +1543,11 @@ function renderCapital() {
   realEl.textContent=signedFmt(real); realEl.className='stat-val '+(real>=0?'n':'r');
 
   const accEl=document.getElementById('cap-accounts-list');
-  accEl.innerHTML=accs.length?[...accs].sort((a,b)=>b.value-a.value).map(a=>{
+  accEl.innerHTML=accs.length?accs.map(a=>{
     const upd=a.updatedAt?'Atualizado em '+new Date(a.updatedAt).toLocaleDateString('pt-BR'):'';
     const meta=[a.name,upd].filter(Boolean).map(esc).join(' · ');
     return `<div class="cap-item"><div class="cap-ico" style="background:${capColor(a.place)}">${esc((a.place||'?').trim()[0].toUpperCase())}</div><div class="cap-info"><div class="cap-name"><span class="cap-edit" title="Clique para editar" onclick="capInline(this,'capital_accounts',${a.id},'place')">${esc(a.place)}</span></div><div class="cap-meta">${meta}</div></div><div class="cap-amt ${a.value<0?'expense':'income'}"><span class="cap-edit" title="Clique para editar" onclick="capInline(this,'capital_accounts',${a.id},'value')">${signedFmt(a.value)}</span></div><div class="cap-actions"><button title="Editar" onclick="openCapAccount(${a.id})">✎</button><button title="Excluir" onclick="deleteCapAccount(${a.id})">✕</button></div></div>`;
-  }).join(''):'<div class="empty-state"><div class="empty-ico">🏦</div><p>Adicione onde você tem dinheiro (bancos, carteiras, marketplaces...)</p></div>';
+  }).join(''):'';
 
   const billEl=document.getElementById('cap-bills-list');
   const sorted=[...bills].sort((a,b)=>{
@@ -1516,7 +1560,7 @@ function renderCapital() {
     const late=!b.paid&&b.dueDate&&b.dueDate<today;
     const ds=b.dueDate?(late?'⚠️ Venceu em ':'Vence em ')+new Date(b.dueDate+'T12:00:00').toLocaleDateString('pt-BR'):'Sem vencimento';
     return `<div class="cap-item${b.paid?' paid':''}"><input type="checkbox" ${b.paid?'checked':''} onchange="toggleCapBill(${b.id})" title="Marcar como paga"><div class="cap-info"><div class="cap-name"><span class="cap-edit" title="Clique para editar" onclick="capInline(this,'capital_bills',${b.id},'name')">${esc(b.name)}</span></div><div class="cap-meta"${late?' style="color:var(--red)"':''}>${b.paid?'Paga':ds}</div></div><div class="cap-amt expense"><span class="cap-edit" title="Clique para editar" onclick="capInline(this,'capital_bills',${b.id},'value')">- ${fmt(b.value)}</span></div><div class="cap-actions"><button title="Editar" onclick="openCapBill(${b.id})">✎</button><button title="Excluir" onclick="deleteCapBill(${b.id})">✕</button></div></div>`;
-  }).join(''):'<div class="empty-state"><div class="empty-ico">🧾</div><p>Nenhuma conta a pagar cadastrada</p></div>';
+  }).join(''):'';
 }
 
 function fmt(v) { return 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }

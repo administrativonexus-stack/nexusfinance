@@ -239,6 +239,20 @@
   .reminder-item { display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--card); border-radius:12px; margin-bottom:8px; transition:opacity .2s; }
   .reminder-item.paid { opacity:0.45; }
   .reminder-item.paid .reminder-text { text-decoration:line-through; }
+.cap-item { display:flex; align-items:center; gap:12px; padding:13px 14px; background:var(--bg); border:1.5px solid var(--border); border-radius:10px; margin-bottom:10px; transition:opacity .2s; }
+.cap-item.paid { opacity:0.45; }
+.cap-item.paid .cap-name { text-decoration:line-through; }
+.cap-ico { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; color:#fff; flex-shrink:0; }
+.cap-info { flex:1; min-width:0; }
+.cap-name { font-weight:600; font-size:14px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cap-meta { font-size:12px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cap-amt { font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:14.5px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.cap-amt.income { color:var(--green); } .cap-amt.expense { color:var(--red); }
+.cap-actions { display:flex; gap:4px; flex-shrink:0; }
+.cap-actions button { background:none; border:none; cursor:pointer; color:var(--muted); font-size:14px; padding:4px 6px; border-radius:6px; }
+.cap-actions button:hover { background:var(--border); color:var(--text); }
+.cap-item input[type=checkbox] { width:18px; height:18px; cursor:pointer; flex-shrink:0; }
+@media (max-width:768px){ .cap-item{padding:11px 10px;gap:9px} .cap-ico{width:32px;height:32px;font-size:13px} }
   .reminder-check input[type=checkbox] { width:18px; height:18px; cursor:pointer; accent-color:var(--green); flex-shrink:0; }
   .reminder-info { flex:1; min-width:0; }
   .reminder-text { font-weight:600; font-size:14px; color:var(--text); }
@@ -552,6 +566,9 @@
     <button class="nav-item" onclick="showPage('reminders',this)">
       <div class="nicon">🔔</div> Lembretes
     </button>
+    <button class="nav-item" onclick="showPage('capital',this)">
+      <div class="nicon">🏦</div> Soma de Capital
+    </button>
 
     <div class="sidebar-footer">
       <div class="user-badge">
@@ -694,6 +711,74 @@
         <button class="btn-add" onclick="openModal('reminder')">+ Novo</button>
       </div>
       <div id="reminders-list"></div>
+    </div>
+
+    <!-- SOMA DE CAPITAL -->
+    <div class="page" id="page-capital">
+      <div class="page-header">
+        <div><div class="page-title">Soma de Capital</div><div class="page-sub">Onde está seu dinheiro e quanto sobra de verdade</div></div>
+        <button class="btn-add" onclick="openCapAccount()">+ Novo Local</button>
+      </div>
+      <div class="cards-row">
+        <div class="stat-card">
+          <div class="stat-top"><div class="stat-lbl">Total em Contas</div><div class="stat-ico g">🏦</div></div>
+          <div class="stat-val g" id="cap-total">R$ 0,00</div>
+          <div class="stat-change" id="cap-total-count">0 locais</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top"><div class="stat-lbl">Contas a Pagar</div><div class="stat-ico r">🧾</div></div>
+          <div class="stat-val r" id="cap-bills">R$ 0,00</div>
+          <div class="stat-change" id="cap-bills-count">0 pendentes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top"><div class="stat-lbl">Saldo Real</div><div class="stat-ico n">💎</div></div>
+          <div class="stat-val n" id="cap-real">R$ 0,00</div>
+          <div class="stat-change">Contas − pendências</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Onde está o dinheiro <a onclick="openCapAccount()">+ Adicionar</a></div>
+        <div id="cap-accounts-list"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Contas a pagar <a onclick="openCapBill()">+ Adicionar</a></div>
+        <div id="cap-bills-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Capital - Local -->
+<div class="modal-overlay" id="modal-cap-account">
+  <div class="modal">
+    <div class="modal-title" id="cap-account-title">Novo Local</div>
+    <div class="form-row">
+      <div class="form-group"><label>Onde está</label><input type="text" id="cap-acc-place" placeholder="Ex: Inter, Binance, Shopee..." list="cap-place-suggestions"></div>
+      <div class="form-group"><label>Valor (R$)</label><input type="number" id="cap-acc-value" placeholder="0,00" step="0.01"></div>
+    </div>
+    <div class="form-group"><label>Descrição (opcional)</label><input type="text" id="cap-acc-name" placeholder="Ex: Reserva, Saldo de vendas, USDT..."></div>
+    <datalist id="cap-place-suggestions">
+      <option value="Sicoob"><option value="Inter"><option value="PicPay"><option value="Nubank"><option value="Mercado Pago"><option value="Mercado Livre"><option value="Shopee"><option value="Binance"><option value="Caixa"><option value="Itaú"><option value="Bradesco"><option value="Banco do Brasil"><option value="C6 Bank"><option value="Dinheiro em espécie">
+    </datalist>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('cap-account')">Cancelar</button>
+      <button class="btn-confirm" onclick="saveCapAccount()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Capital - Conta a pagar -->
+<div class="modal-overlay" id="modal-cap-bill">
+  <div class="modal">
+    <div class="modal-title" id="cap-bill-title">Nova Conta a Pagar</div>
+    <div class="form-group"><label>Descrição</label><input type="text" id="cap-bill-name" placeholder="Ex: Cartão Nubank, Aluguel, Fornecedor..."></div>
+    <div class="form-row">
+      <div class="form-group"><label>Valor (R$)</label><input type="number" id="cap-bill-value" placeholder="0,00" min="0" step="0.01"></div>
+      <div class="form-group"><label>Vencimento (opcional)</label><input type="date" id="cap-bill-date"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('cap-bill')">Cancelar</button>
+      <button class="btn-confirm" onclick="saveCapBill()">Salvar</button>
     </div>
   </div>
 </div>
@@ -1063,7 +1148,7 @@ function showPage(page, btn) {
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
   if(btn&&btn.classList.contains('nav-item')) btn.classList.add('active');
-  ({dashboard:renderAll,transactions:renderTxList,fixed:renderFixed,'income-page':renderRecurring,goals:renderGoals,relatorio:renderRelatorio,reminders:renderReminders})[page]?.();
+  ({dashboard:renderAll,transactions:renderTxList,fixed:renderFixed,'income-page':renderRecurring,goals:renderGoals,relatorio:renderRelatorio,reminders:renderReminders,capital:renderCapital})[page]?.();
 }
 
 function openModal(type) { document.getElementById('modal-'+type).classList.add('open'); }
@@ -1306,6 +1391,97 @@ function renderReminders() {
     const vs=r.value?fmt(r.value):'';
     return `<div class="reminder-item${r.paid?' paid':''}"><div class="reminder-check"><input type="checkbox" ${r.paid?'checked':''} onchange="toggleReminder(${r.id})"></div><div class="reminder-info"><div class="reminder-text">${r.text}</div><div class="reminder-meta">${[ds,vs].filter(Boolean).join(' · ')}</div></div><button class="tx-del" onclick="deleteReminder(${r.id})">✕</button></div>`;
   }).join('');
+}
+
+// ── SOMA DE CAPITAL ──
+let editingCapAccId=null, editingCapBillId=null;
+const CAP_COLORS=['#0f2254','#0f9f6e','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#ef4444','#06b6d4','#6366f1','#84cc16'];
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function capColor(place){ let h=0; for(const ch of (place||'').toLowerCase()) h=(h*31+ch.charCodeAt(0))>>>0; return CAP_COLORS[h%CAP_COLORS.length]; }
+function signedFmt(v){ return (v<0?'- ':'')+fmt(Math.abs(v)); }
+
+function openCapAccount(id=null) {
+  editingCapAccId=id;
+  const a=id?getUserData('capital_accounts').find(x=>x.id===id):null;
+  document.getElementById('cap-account-title').textContent=a?'Editar Local':'Novo Local';
+  document.getElementById('cap-acc-place').value=a?.place||'';
+  document.getElementById('cap-acc-name').value=a?.name||'';
+  document.getElementById('cap-acc-value').value=a?a.value:'';
+  openModal('cap-account');
+}
+function saveCapAccount() {
+  const place=document.getElementById('cap-acc-place').value.trim(), name=document.getElementById('cap-acc-name').value.trim(), value=parseFloat(document.getElementById('cap-acc-value').value);
+  if(!place||isNaN(value)) return toast('Informe o local e o valor','error');
+  const items=getUserData('capital_accounts');
+  const now=new Date().toISOString();
+  if(editingCapAccId){ const a=items.find(x=>x.id===editingCapAccId); if(a) Object.assign(a,{place,name,value,updatedAt:now}); }
+  else items.push({id:Date.now(),place,name,value,updatedAt:now});
+  setUserData('capital_accounts',items); closeModal('cap-account');
+  toast(editingCapAccId?'Local atualizado!':'Local adicionado!','success'); editingCapAccId=null; renderCapital();
+}
+function deleteCapAccount(id) {
+  if(!confirm('Remover este local?')) return;
+  setUserData('capital_accounts',getUserData('capital_accounts').filter(x=>x.id!==id)); renderCapital(); toast('Removido','success');
+}
+
+function openCapBill(id=null) {
+  editingCapBillId=id;
+  const b=id?getUserData('capital_bills').find(x=>x.id===id):null;
+  document.getElementById('cap-bill-title').textContent=b?'Editar Conta':'Nova Conta a Pagar';
+  document.getElementById('cap-bill-name').value=b?.name||'';
+  document.getElementById('cap-bill-value').value=b?b.value:'';
+  document.getElementById('cap-bill-date').value=b?.dueDate||'';
+  openModal('cap-bill');
+}
+function saveCapBill() {
+  const name=document.getElementById('cap-bill-name').value.trim(), value=parseFloat(document.getElementById('cap-bill-value').value), dueDate=document.getElementById('cap-bill-date').value;
+  if(!name||!value||value<=0) return toast('Informe a descrição e o valor','error');
+  const items=getUserData('capital_bills');
+  if(editingCapBillId){ const b=items.find(x=>x.id===editingCapBillId); if(b) Object.assign(b,{name,value,dueDate}); }
+  else items.push({id:Date.now(),name,value,dueDate,paid:false});
+  setUserData('capital_bills',items); closeModal('cap-bill');
+  toast(editingCapBillId?'Conta atualizada!':'Conta adicionada!','success'); editingCapBillId=null; renderCapital();
+}
+function toggleCapBill(id) {
+  const items=getUserData('capital_bills'), b=items.find(x=>x.id===id); if(!b) return;
+  b.paid=!b.paid; setUserData('capital_bills',items); renderCapital();
+}
+function deleteCapBill(id) {
+  if(!confirm('Remover esta conta?')) return;
+  setUserData('capital_bills',getUserData('capital_bills').filter(x=>x.id!==id)); renderCapital(); toast('Removida','success');
+}
+
+function renderCapital() {
+  const accs=getUserData('capital_accounts'), bills=getUserData('capital_bills');
+  const total=accs.reduce((s,a)=>s+(a.value||0),0);
+  const pending=bills.filter(b=>!b.paid), owed=pending.reduce((s,b)=>s+(b.value||0),0);
+  const real=total-owed;
+  document.getElementById('cap-total').textContent=signedFmt(total);
+  document.getElementById('cap-total-count').textContent=accs.length+(accs.length===1?' local':' locais');
+  document.getElementById('cap-bills').textContent=fmt(owed);
+  document.getElementById('cap-bills-count').textContent=pending.length+(pending.length===1?' pendente':' pendentes');
+  const realEl=document.getElementById('cap-real');
+  realEl.textContent=signedFmt(real); realEl.className='stat-val '+(real>=0?'n':'r');
+
+  const accEl=document.getElementById('cap-accounts-list');
+  accEl.innerHTML=accs.length?[...accs].sort((a,b)=>b.value-a.value).map(a=>{
+    const upd=a.updatedAt?'Atualizado em '+new Date(a.updatedAt).toLocaleDateString('pt-BR'):'';
+    const meta=[a.name,upd].filter(Boolean).map(esc).join(' · ');
+    return `<div class="cap-item"><div class="cap-ico" style="background:${capColor(a.place)}">${esc((a.place||'?').trim()[0].toUpperCase())}</div><div class="cap-info"><div class="cap-name">${esc(a.place)}</div><div class="cap-meta">${meta}</div></div><div class="cap-amt ${a.value<0?'expense':'income'}">${signedFmt(a.value)}</div><div class="cap-actions"><button title="Editar" onclick="openCapAccount(${a.id})">✎</button><button title="Excluir" onclick="deleteCapAccount(${a.id})">✕</button></div></div>`;
+  }).join(''):'<div class="empty-state"><div class="empty-ico">🏦</div><p>Adicione onde você tem dinheiro (bancos, carteiras, marketplaces...)</p></div>';
+
+  const billEl=document.getElementById('cap-bills-list');
+  const sorted=[...bills].sort((a,b)=>{
+    if(a.paid!==b.paid) return a.paid?1:-1;
+    if(!a.dueDate&&!b.dueDate) return 0; if(!a.dueDate) return 1; if(!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+  const today=new Date().toISOString().slice(0,10);
+  billEl.innerHTML=sorted.length?sorted.map(b=>{
+    const late=!b.paid&&b.dueDate&&b.dueDate<today;
+    const ds=b.dueDate?(late?'⚠️ Venceu em ':'Vence em ')+new Date(b.dueDate+'T12:00:00').toLocaleDateString('pt-BR'):'Sem vencimento';
+    return `<div class="cap-item${b.paid?' paid':''}"><input type="checkbox" ${b.paid?'checked':''} onchange="toggleCapBill(${b.id})" title="Marcar como paga"><div class="cap-info"><div class="cap-name">${esc(b.name)}</div><div class="cap-meta"${late?' style="color:var(--red)"':''}>${b.paid?'Paga':ds}</div></div><div class="cap-amt expense">- ${fmt(b.value)}</div><div class="cap-actions"><button title="Editar" onclick="openCapBill(${b.id})">✎</button><button title="Excluir" onclick="deleteCapBill(${b.id})">✕</button></div></div>`;
+  }).join(''):'<div class="empty-state"><div class="empty-ico">🧾</div><p>Nenhuma conta a pagar cadastrada</p></div>';
 }
 
 function fmt(v) { return 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
